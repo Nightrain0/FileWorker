@@ -9,6 +9,9 @@ import useClipStore from "@/store/clip";
 import { PutFile } from "@/api";
 import { getRandomFilename, copyToClipboard } from "@/utils/utils";
 import { toast } from '@/utils/toast';
+import { useI18n } from 'vue-i18n';
+
+const { t: $t } = useI18n();
 
 const code = ref("");
 const modified = ref(false);
@@ -22,7 +25,6 @@ let startState = EditorState.create({
     lineNumbers(),
     highlightSpecialChars(),
     drawSelection(),
-    // 文件拖动
     dropCursor(),
     EditorView.updateListener.of((update) => {
       code.value = update.state.doc.toString();
@@ -49,8 +51,6 @@ let filename = ref(getRandomFilename());
 
 let refreshRandomFileName = () => {
   filename.value = getRandomFilename();
-  // 重置修改状态，因为看起来像是新文件
-  // modified.value = true; // 或者保持状态
 }
 
 const clipStore = useClipStore();
@@ -58,7 +58,7 @@ const clipStore = useClipStore();
 let onSaveBtnClick = async () => {
   await PutFile(filename.value, code.value, clipStore.visibility, "text");
   modified.value = false;
-  toast('Saved successfully', 'success');
+  toast($t('message.save_success'), 'success');
 }
 
 let saveContentKeydown = (e: KeyboardEvent) => {
@@ -69,7 +69,6 @@ let saveContentKeydown = (e: KeyboardEvent) => {
 }
 
 let onPasteFile = async (e: ClipboardEvent) => {
-  // 仅当编辑器聚焦或没有明确焦点时处理，防止干扰 input
   const target = e.target as HTMLElement;
   if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' && target !== editor.contentDOM)) {
     return;
@@ -79,7 +78,6 @@ let onPasteFile = async (e: ClipboardEvent) => {
     return;
   }
   const file = e.clipboardData.files[0];
-  console.log(file);
   const text = await file.text();
   const cursor = editor.state.selection.main.head;
   editor.dispatch({
@@ -114,27 +112,35 @@ const onCopyContent = () => {
 
 <template>
   <div class="flex flex-col items-center">
-    <div class="text-area flex flex-col mt-4">
-      <div class="header p-2 flex flex-row items-center gap-2">
-        <input class="filename-input monospace" type="text" v-model="filename" :placeholder="$t('common.filename')" />
-        <button @click="refreshRandomFileName" class="i-mdi-refresh w-5 h-5 cursor-pointer hover:text-blue-500" title="Refresh Filename"></button>
+    <div class="text-area flex flex-col mt-4 shadow-sm">
+      <div class="header p-2 flex flex-row items-center gap-2 border-b border-gray-200">
+        <input class="filename-input monospace bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" type="text" v-model="filename" :placeholder="$t('common.filename')" />
+        <button @click="refreshRandomFileName" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 transition text-gray-600" :title="$t('common.refresh_filename')">
+            <div class="i-mdi-refresh text-xl"></div>
+        </button>
         
-        <div class="ml-auto flex items-center gap-2">
+        <div class="ml-auto flex items-center gap-1">
              <!-- Copy Link -->
-             <button class="i-mdi-link w-5 h-5 cursor-pointer hover:text-blue-500" title="Copy Link" @click="onCopyLink"></button>
+             <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-blue-50 transition text-gray-600 hover:text-blue-600" :title="$t('common.copy_link')" @click="onCopyLink">
+                <div class="i-mdi-link text-xl"></div>
+             </button>
              <!-- Copy Content -->
-             <button class="i-mdi-content-copy w-5 h-5 cursor-pointer hover:text-blue-500" title="Copy Content" @click="onCopyContent"></button>
+             <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-blue-50 transition text-gray-600 hover:text-blue-600" :title="$t('common.copy_content')" @click="onCopyContent">
+                <div class="i-mdi-content-copy text-lg"></div>
+             </button>
              <!-- Status Indicator -->
-             <div :class="modified ? 'unsave-attention' : 'save-attention'" :title="modified ? 'Unsaved changes' : 'Saved'"></div>
+             <div class="ml-2 flex items-center justify-center w-6 h-6" :title="modified ? $t('common.unsaved_changes') : $t('common.saved')">
+                <div :class="modified ? 'unsave-attention' : 'save-attention'"></div>
+             </div>
         </div>
       </div>
       <div ref="editorElement"></div>
-      <div class="footer p-2">
+      <div class="footer p-2 border-t border-gray-200 bg-gray-50">
         <select class="public-select" v-model="clipStore.visibility">
           <option value="private">{{ $t('common.private') }}</option>
           <option value="public">{{ $t('common.public') }}</option>
         </select>
-        <button class="save-btn" @click="onSaveBtnClick">{{ $t('common.save') }}</button>
+        <button class="save-btn transition" @click="onSaveBtnClick">{{ $t('common.save') }}</button>
       </div>
     </div>
   </div>
@@ -150,27 +156,24 @@ body,
 }
 
 .text-area {
-  --uno: rounded max-w-screen-md w-4/5 border-1 border-gray-300;
+  --uno: rounded-lg max-w-screen-md w-4/5 border border-gray-300 overflow-hidden;
   background-color: white;
 }
 
 .text-area .header {
-  background-color: #f5f5f5;
+  background-color: #f9fafb;
 }
 
 .text-area .footer {
-  --uno: flex flex-row;
-  background-color: #f5f5f5;
+  --uno: flex flex-row items-center;
 }
 
 .text-area .footer .public-select {
-  --uno: border-1 rounded px-6 py-1.5 text-sm;
-  border-color: #d1d1d1;
-  outline-color: #0969da;
+  --uno: border border-gray-300 rounded px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500;
 }
 
 .text-area .footer .save-btn {
-  --uno: rounded px-6 py-1.5 text-sm ml-auto text-white;
+  --uno: rounded px-5 py-1.5 text-sm ml-auto text-white font-medium shadow-sm;
   background-color: #1f883d;
 }
 
@@ -179,40 +182,44 @@ body,
 }
 
 .text-area .header .filename-input {
-  --uno: border-1 rounded px-3 py-2 text-sm w-60;
-  border-color: #d1d1d1;
-  outline-color: #0969da;
+  --uno: border border-gray-300 rounded px-3 py-1.5 text-sm w-60 text-gray-700;
 }
 
 .cm-editor {
-  height: 400px;
-  border-top: 1px solid #ddd;
-  border-bottom: 1px solid #ddd;
+  height: 500px; /* 增加一点高度 */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 .cm-editor.cm-focused {
   outline: none;
 }
 
+.cm-scroller {
+    overflow: auto;
+}
+
 .cm-gutter.cm-lineNumbers {
-  background-color: white;
+  background-color: #f9fafb;
+  color: #9ca3af;
+  border-right: 1px solid #e5e7eb;
 }
 
 .cm-gutters {
-  border: none !important;
+  border-right: 1px solid #e5e7eb !important;
+  background-color: #f9fafb;
 }
 
 .cm-selectionBackground {
-  background-color: #54aeff66 !important;
+  background-color: #bae6fd !important; /* blue-200 */
 }
 
 .unsave-attention {
-  --uno: i-mdi-circle-medium w-6 h-6;
+  --uno: i-mdi-circle w-3 h-3;
   color: #eab308 !important; /* yellow-500 */
 }
 
 .save-attention {
-  --uno: i-mdi-circle-medium w-6 h-6;
+  --uno: i-mdi-circle w-3 h-3;
   color: #22c55e !important; /* green-500 */
 }
 </style>
