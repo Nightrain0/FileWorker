@@ -16,14 +16,10 @@ const onSubmitBtnClick = async () => {
     if (loading.value) return;
     loading.value = true;
     
-    // 1. 先设置 Cookie，因为 API 请求会自动带上
     Cookies.set('PASSWORD', password.value);
 
     try {
-        // 2. 尝试请求一个接口来验证密码 (获取1个文件)
         await ListFiles("1");
-        
-        // 3. 成功则提示并跳转
         toast($t("login.setting_success"), 'success');
         setTimeout(() => {
             if (window.history.state.back) {
@@ -33,7 +29,6 @@ const onSubmitBtnClick = async () => {
             }
         }, 500);
     } catch (e) {
-        // 4. 失败则清除 Cookie 并提示
         Cookies.remove('PASSWORD');
         toast($t("login.login_fail"), 'error');
     } finally {
@@ -43,30 +38,40 @@ const onSubmitBtnClick = async () => {
 </script>
 
 <template>
-    <div class="cursor-default flex flex-col items-center">
-        <div id="board">
-            <h1 class="text-lg">{{ $t("login.login_title") }}</h1>
-            <input class="my-5 px-2 py-1 w-64 border-2 rounded outline-blue-500" 
-                   type="password" 
-                   v-model="password"
-                   @keyup.enter="onSubmitBtnClick"
-                   :placeholder="$t('login.password_placeholder')">
-            <button id="submit-button" class="btn flex justify-center items-center" 
-                    :class="{ 'opacity-50 cursor-not-allowed': loading }"
-                    @click="onSubmitBtnClick">
-                <div v-if="loading" class="i-mdi-loading animate-spin mr-2"></div>
-                {{ $t("login.login_button") }}
-            </button>
+    <div class="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+        <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-gray-100 transition-all duration-300 hover:shadow-2xl">
+            <div class="flex flex-col items-center mb-8">
+                <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 text-blue-500">
+                    <div class="i-mdi-lock text-3xl"></div>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800">{{ $t("login.login_title") }}</h1>
+                <p class="text-gray-500 text-sm mt-2">FileWorker</p>
+            </div>
+
+            <div class="space-y-6">
+                <div>
+                    <input 
+                        class="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-gray-700 placeholder-gray-400"
+                        type="password" 
+                        v-model="password"
+                        @keyup.enter="onSubmitBtnClick"
+                        :placeholder="$t('login.password_placeholder')"
+                    >
+                </div>
+                
+                <button 
+                    class="w-full py-3 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-lg shadow-lg shadow-blue-600/20 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    :disabled="loading"
+                    @click="onSubmitBtnClick"
+                >
+                    <div v-if="loading" class="i-mdi-loading animate-spin text-xl"></div>
+                    <span>{{ $t("login.login_button") }}</span>
+                </button>
+            </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-#board {
-    @apply rounded-lg flex flex-col bg-gray-100 border-2 border-gray-200 my-5 mx-2 p-4 justify-center items-center dark:(bg-dark-100 border-dark-300 text-gray-400);
-}
-
-.btn {
-    @apply rounded cursor-pointer outline-none bg-green-500 text-white text-lg py-1 px-4 transition w-64 hover:bg-green-600;
-}
+/* 样式已通过 Tailwind/UnoCSS 类实现 */
 </style>
