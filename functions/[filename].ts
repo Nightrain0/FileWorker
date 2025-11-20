@@ -66,9 +66,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     const parallelUploads3 = new Upload({
         client: s3,
         params: { Bucket: BUCKET, Key: filename as string, Body: request.body, Metadata: Object.fromEntries(x_store_headers) },
-        queueSize: 4, // optional concurrency configuration
-        partSize: 1024 * 1024 * 5, // optional size of each part, in bytes, at least 5MB
-        leavePartsOnError: false, // optional manually handle dropped parts
+        queueSize: 4,
+        partSize: 1024 * 1024 * 5,
+        leavePartsOnError: false,
     });
     await parallelUploads3.done();
     return new Response("OK", { status: 200 });
@@ -102,14 +102,16 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
 
 export const onRequestDelete: PagesFunction<Env> = async (context) => {
     const { params, env, request } = context;
+    // 1. 验证权限 (401)
     if (!auth(env, request)) {
         return new Response("Unauthorized", { status: 401 });
     }
+    
     const { filename } = params;
     const { BUCKET } = env;
     const s3 = createS3Client(env);
     
-    // 优化：直接使用 s3 client 删除对象，无需生成 signedUrl 再 fetch
+    // 2. 执行删除 (500 如果失败)
     const command = new DeleteObjectCommand({
         Bucket: BUCKET!,
         Key: filename as string
@@ -118,8 +120,12 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     try {
         await s3.send(command);
         return new Response("OK", { status: 200 });
-    } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    } catch (error: any) {
+        // 返回具体的错误信息以便调试
+        return new Response(JSON.stringify({ error: error.message, code: error.code || 'Unknown' }), { 
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+        });
     }
 }
 
