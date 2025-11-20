@@ -4,6 +4,10 @@ export default {
         public: 'Public',
         private: 'Private',
         save: 'Save',
+        copy: 'Copy',
+        delete: 'Delete',
+        copy_link: 'Copy Link',
+        copy_content: 'Copy Content',
     },
     index: {
         file_channel_title: 'Files',
@@ -22,5 +26,15 @@ export default {
         file: 'Files',
         login: 'Login',
         filemanage: 'File Manage',
+    },
+    message: {
+        copy_success: 'Copied to clipboard',
+        copy_fail: 'Failed to copy',
+        save_success: 'Saved successfully',
+        upload_success: 'Upload success',
+        delete_confirm: 'Are you sure you want to delete "{filename}"?',
+        drop_hint: 'Drop files here',
+        no_files: 'No files found',
+        delete_success: 'Delete success'
     }
 }
