@@ -66,9 +66,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     const parallelUploads3 = new Upload({
         client: s3,
         params: { Bucket: BUCKET, Key: filename as string, Body: request.body, Metadata: Object.fromEntries(x_store_headers) },
-        queueSize: 4,
-        partSize: 1024 * 1024 * 5,
-        leavePartsOnError: false,
+        queueSize: 4, // optional concurrency configuration
+        partSize: 1024 * 1024 * 5, // optional size of each part, in bytes, at least 5MB
+        leavePartsOnError: false, // optional manually handle dropped parts
     });
     await parallelUploads3.done();
     return new Response("OK", { status: 200 });
@@ -111,7 +111,9 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     const { BUCKET } = env;
     const s3 = createS3Client(env);
     
-    // 2. 执行删除 (500 如果失败)
+    // 2. 执行删除
+    // 修复：直接使用 s3 client 删除对象，不使用 getSignedUrl + fetch 的方式
+    // 这种方式更稳定，不会因为 Worker 内部 fetch 自身导致的超时或网络问题而报错
     const command = new DeleteObjectCommand({
         Bucket: BUCKET!,
         Key: filename as string
@@ -121,8 +123,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
         await s3.send(command);
         return new Response("OK", { status: 200 });
     } catch (error: any) {
-        // 返回具体的错误信息以便调试
-        return new Response(JSON.stringify({ error: error.message, code: error.code || 'Unknown' }), { 
+        return new Response(JSON.stringify({ error: error.message }), { 
             status: 500,
             headers: { 'Content-Type': 'application/json' }
         });
