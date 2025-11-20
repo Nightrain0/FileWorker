@@ -7,7 +7,8 @@ const PutFile = async (
     type: string = "file",
     onProgress?: (progress: number) => void
 ) => {
-    const url = `/${filename}`;
+    // 同样建议对上传路径进行编码，防止特殊字符导致路径错误
+    const url = `/${encodeURIComponent(filename)}`;
     const headers = {
         'x-store-visibility': visibility,
         'x-store-type': type,
@@ -25,7 +26,7 @@ const PutFile = async (
 }
 
 const PatchFile = async (filename: string, visibility?: string) => {
-    const url = `/${filename}`;
+    const url = `/${encodeURIComponent(filename)}`;
     const headers: { [key: string]: any } = {};
     if (visibility) {
         headers['x-store-visibility'] = visibility;
@@ -35,7 +36,10 @@ const PatchFile = async (filename: string, visibility?: string) => {
 }
 
 const DeleteFile = async (filename: string) => {
-    const url = `/${filename}`;
+    // 修复：必须使用 encodeURIComponent 编码文件名
+    // 否则 "foo bar.txt" 可能变成 "foo%20bar.txt" (浏览器自动处理空格通常没问题)，
+    // 但 "foo#bar.txt" 会被截断为 "foo"，导致删除错误的文件或找不到文件。
+    const url = `/${encodeURIComponent(filename)}`;
     const response = await axios.delete(url);
     return response.data;
 }
