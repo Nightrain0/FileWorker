@@ -1,4 +1,8 @@
 import { toast } from "./toast";
+import i18n from "@/i18n";
+
+// 获取 i18n 的 t 函数，用于在非组件文件中使用翻译
+const $t = i18n.global.t;
 
 const getRandomFilename = () => {
     const filename = Math.random().toString(36).substring(2, 8);
@@ -16,15 +20,14 @@ function formatBytes(bytes: number) {
 
 /**
  * 复制文本到剪贴板
- * 优先使用 navigator.clipboard，降级使用 document.execCommand
  */
 const copyToClipboard = async (text: string) => {
     try {
         if (navigator.clipboard && window.isSecureContext) {
             await navigator.clipboard.writeText(text);
-            toast('Copied to clipboard', 'success');
+            toast($t('message.copy_success'), 'success');
         } else {
-            // Fallback for older browsers or non-secure contexts
+            // 降级方案
             const textArea = document.createElement("textarea");
             textArea.value = text;
             textArea.style.position = "fixed";
@@ -36,14 +39,14 @@ const copyToClipboard = async (text: string) => {
             const successful = document.execCommand('copy');
             document.body.removeChild(textArea);
             if (successful) {
-                toast('Copied to clipboard', 'success');
+                toast($t('message.copy_success'), 'success');
             } else {
                 throw new Error('Unable to copy');
             }
         }
     } catch (err) {
         console.error('Failed to copy: ', err);
-        toast('Failed to copy', 'error');
+        toast($t('message.copy_fail'), 'error');
     }
 }
 
