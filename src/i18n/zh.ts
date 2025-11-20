@@ -22,6 +22,7 @@ export default {
         password_placeholder: '密码',
         login_button: '登录',
         setting_success: '设置成功',
+        login_fail: '密码错误',
     },
     page_title: {
         index: '主页',
