@@ -1,6 +1,5 @@
 import { GetObjectCommand, CopyObjectCommand, DeleteObjectCommand, GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import mime from 'mime/lite';
 
 import Env from './utils/Env';
@@ -109,19 +108,19 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     const { filename } = params;
     const { BUCKET } = env;
     const s3 = createS3Client(env);
+    
+    // 优化：直接使用 s3 client 删除对象，无需生成 signedUrl 再 fetch
     const command = new DeleteObjectCommand({
         Bucket: BUCKET!,
         Key: filename as string
     });
-    const url = await getSignedUrl(
-        s3,
-        command,
-        { expiresIn: 3600 }
-    );
-    await fetch(url, {
-        method: 'DELETE',
-    });
-    return new Response("OK", { status: 200 });
+
+    try {
+        await s3.send(command);
+        return new Response("OK", { status: 200 });
+    } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    }
 }
 
 export const onRequest: PagesFunction<Env> = async () => {
