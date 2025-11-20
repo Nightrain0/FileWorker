@@ -8,6 +8,9 @@ export default {
         delete: 'Delete',
         copy_link: 'Copy Link',
         copy_content: 'Copy Content',
+        refresh_filename: 'Refresh Filename',
+        unsaved_changes: 'Unsaved changes',
+        saved: 'Saved',
     },
     index: {
         file_channel_title: 'Files',
@@ -35,6 +38,8 @@ export default {
         delete_confirm: 'Are you sure you want to delete "{filename}"?',
         drop_hint: 'Drop files here',
         no_files: 'No files found',
-        delete_success: 'Delete success'
+        delete_success: 'Delete success',
+        delete_fail: 'Delete failed',
+        load_fail: 'Failed to load files',
     }
 }
