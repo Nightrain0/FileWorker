@@ -8,6 +8,9 @@ export default {
         delete: '删除',
         copy_link: '复制链接',
         copy_content: '复制内容',
+        refresh_filename: '刷新文件名',
+        unsaved_changes: '未保存的更改',
+        saved: '已保存',
     },
     index: {
         file_channel_title: '文件',
@@ -35,6 +38,8 @@ export default {
         delete_confirm: '确定要删除文件 "{filename}" 吗？',
         drop_hint: '松开鼠标上传文件',
         no_files: '暂无文件',
-        delete_success: '删除成功'
+        delete_success: '删除成功',
+        delete_fail: '删除失败',
+        load_fail: '加载文件失败',
     }
 }
