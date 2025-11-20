@@ -5,6 +5,7 @@ import { EditorView, lineNumbers, highlightSpecialChars, drawSelection, dropCurs
 
 import { onMounted, onBeforeUnmount, ref } from "vue";
 import useClipStore from "@/store/clip";
+import { useRouter } from 'vue-router';
 
 import { PutFile } from "@/api";
 import { getRandomFilename, copyToClipboard } from "@/utils/utils";
@@ -12,6 +13,7 @@ import { toast } from '@/utils/toast';
 import { useI18n } from 'vue-i18n';
 
 const { t: $t } = useI18n();
+const router = useRouter();
 
 const code = ref("");
 const modified = ref(false);
@@ -32,6 +34,10 @@ let startState = EditorState.create({
         modified.value = true;
       }
     }),
+    EditorView.theme({
+      "&": { height: "100%" },
+      ".cm-scroller": { fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }
+    })
   ]
 })
 
@@ -39,11 +45,6 @@ onMounted(() => {
   editor = new EditorView({
     state: startState,
     parent: editorElement.value,
-  })
-  editor.requestMeasure({
-    read: () => {
-      editor.focus();
-    }
   })
 })
 
@@ -108,118 +109,79 @@ const onCopyContent = () => {
   copyToClipboard(code.value);
 }
 
+const goHome = () => router.push('/');
 </script>
 
 <template>
-  <div class="flex flex-col items-center">
-    <div class="text-area flex flex-col mt-4 shadow-sm">
-      <div class="header p-2 flex flex-row items-center gap-2 border-b border-gray-200">
-        <input class="filename-input monospace bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" type="text" v-model="filename" :placeholder="$t('common.filename')" />
-        <button @click="refreshRandomFileName" class="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 transition text-gray-600" :title="$t('common.refresh_filename')">
-            <div class="i-mdi-refresh text-xl"></div>
-        </button>
-        
-        <div class="ml-auto flex items-center gap-1">
-             <!-- Copy Link -->
-             <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-blue-50 transition text-gray-600 hover:text-blue-600" :title="$t('common.copy_link')" @click="onCopyLink">
-                <div class="i-mdi-link text-xl"></div>
+  <div class="page-container h-screen overflow-hidden !py-4">
+    <!-- 顶部工具栏 -->
+    <div class="w-full max-w-5xl bg-white rounded-t-xl border border-gray-200 border-b-0 shadow-sm p-2 flex items-center gap-3 z-10 relative">
+      <button @click="goHome" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+        <div class="i-mdi-arrow-left text-xl"></div>
+      </button>
+      
+      <div class="h-6 w-px bg-gray-200 mx-1"></div>
+
+      <div class="flex items-center bg-gray-50 rounded-lg border border-gray-200 px-2 py-1 focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all">
+         <input class="bg-transparent outline-none text-sm w-32 sm:w-48 text-gray-700 font-mono" type="text" v-model="filename" :placeholder="$t('common.filename')" />
+         <button @click="refreshRandomFileName" class="text-gray-400 hover:text-blue-500 transition-colors ml-1 p-1">
+            <div class="i-mdi-refresh text-lg"></div>
+         </button>
+      </div>
+
+      <div class="ml-auto flex items-center gap-2">
+         <div class="hidden sm:flex items-center gap-1 mr-2">
+             <button class="p-1.5 rounded-md hover:bg-gray-100 text-gray-600 transition-colors" :title="$t('common.copy_link')" @click="onCopyLink">
+                <div class="i-mdi-link-variant text-lg"></div>
              </button>
-             <!-- Copy Content -->
-             <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-blue-50 transition text-gray-600 hover:text-blue-600" :title="$t('common.copy_content')" @click="onCopyContent">
+             <button class="p-1.5 rounded-md hover:bg-gray-100 text-gray-600 transition-colors" :title="$t('common.copy_content')" @click="onCopyContent">
                 <div class="i-mdi-content-copy text-lg"></div>
              </button>
-             <!-- Status Indicator -->
-             <div class="ml-2 flex items-center justify-center w-6 h-6" :title="modified ? $t('common.unsaved_changes') : $t('common.saved')">
-                <div :class="modified ? 'unsave-attention' : 'save-attention'"></div>
-             </div>
-        </div>
+         </div>
+         
+         <select class="bg-gray-50 border border-gray-200 text-gray-600 text-xs rounded-md px-2 py-1.5 focus:outline-none cursor-pointer hover:bg-gray-100" v-model="clipStore.visibility">
+            <option value="private">{{ $t('common.private') }}</option>
+            <option value="public">{{ $t('common.public') }}</option>
+         </select>
+
+         <button class="flex items-center gap-2 px-4 py-1.5 rounded-lg text-white text-sm font-medium shadow-sm transition-all" 
+            :class="modified ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-600 hover:bg-green-700'"
+            @click="onSaveBtnClick">
+            <div v-if="modified" class="i-mdi-content-save-edit text-lg"></div>
+            <div v-else class="i-mdi-check text-lg"></div>
+            <span class="hidden sm:inline">{{ modified ? 'Save *' : $t('common.saved') }}</span>
+         </button>
       </div>
-      <div ref="editorElement"></div>
-      <div class="footer p-2 border-t border-gray-200 bg-gray-50">
-        <select class="public-select" v-model="clipStore.visibility">
-          <option value="private">{{ $t('common.private') }}</option>
-          <option value="public">{{ $t('common.public') }}</option>
-        </select>
-        <button class="save-btn transition" @click="onSaveBtnClick">{{ $t('common.save') }}</button>
-      </div>
+    </div>
+
+    <!-- 编辑器区域 -->
+    <div class="w-full max-w-5xl flex-1 bg-white rounded-b-xl border border-gray-200 shadow-sm overflow-hidden relative">
+        <div ref="editorElement" class="h-full text-sm"></div>
     </div>
   </div>
 </template>
 
 <style>
-html,
-body,
-#app {
-  margin: 0;
-  padding: 0;
-  background-color: #f8f9fa;
-}
-
-.text-area {
-  --uno: rounded-lg max-w-screen-md w-4/5 border border-gray-300 overflow-hidden;
-  background-color: white;
-}
-
-.text-area .header {
-  background-color: #f9fafb;
-}
-
-.text-area .footer {
-  --uno: flex flex-row items-center;
-}
-
-.text-area .footer .public-select {
-  --uno: border border-gray-300 rounded px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500;
-}
-
-.text-area .footer .save-btn {
-  --uno: rounded px-5 py-1.5 text-sm ml-auto text-white font-medium shadow-sm;
-  background-color: #1f883d;
-}
-
-.text-area .footer .save-btn:hover {
-  background-color: #1a7f37;
-}
-
-.text-area .header .filename-input {
-  --uno: border border-gray-300 rounded px-3 py-1.5 text-sm w-60 text-gray-700;
-}
-
+/* Codemirror Customization */
 .cm-editor {
-  height: 500px; /* 增加一点高度 */
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  height: 100%;
 }
-
-.cm-editor.cm-focused {
-  outline: none;
-}
-
 .cm-scroller {
-    overflow: auto;
+    padding-top: 0.5rem;
 }
-
-.cm-gutter.cm-lineNumbers {
-  background-color: #f9fafb;
-  color: #9ca3af;
-  border-right: 1px solid #e5e7eb;
-}
-
 .cm-gutters {
-  border-right: 1px solid #e5e7eb !important;
-  background-color: #f9fafb;
+    background-color: #fff !important;
+    border-right: 1px solid #f3f4f6 !important;
+    color: #9ca3af !important;
 }
-
+.cm-activeLineGutter {
+    background-color: #f0f9ff !important;
+    color: #0ea5e9 !important;
+}
+.cm-activeLine {
+    background-color: #f0f9ff40 !important;
+}
 .cm-selectionBackground {
-  background-color: #bae6fd !important; /* blue-200 */
-}
-
-.unsave-attention {
-  --uno: i-mdi-circle w-3 h-3;
-  color: #eab308 !important; /* yellow-500 */
-}
-
-.save-attention {
-  --uno: i-mdi-circle w-3 h-3;
-  color: #22c55e !important; /* green-500 */
+    background-color: #bae6fd80 !important;
 }
 </style>
