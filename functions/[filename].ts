@@ -112,8 +112,6 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     const s3 = createS3Client(env);
     
     // 2. 执行删除
-    // 修复：直接使用 s3 client 删除对象，不使用 getSignedUrl + fetch 的方式
-    // 这种方式更稳定，不会因为 Worker 内部 fetch 自身导致的超时或网络问题而报错
     const command = new DeleteObjectCommand({
         Bucket: BUCKET!,
         Key: filename as string
@@ -123,6 +121,12 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
         await s3.send(command);
         return new Response("OK", { status: 200 });
     } catch (error: any) {
+        // 修复：R2 返回 204 No Content 时，aws-sdk 可能会因为解析空响应体而抛出错误
+        // 如果 error.$metadata.httpStatusCode 是 204 或 200，说明服务端操作已成功，应视为成功
+        if (error?.$metadata?.httpStatusCode === 204 || error?.$metadata?.httpStatusCode === 200) {
+            return new Response("OK", { status: 200 });
+        }
+        
         return new Response(JSON.stringify({ error: error.message }), { 
             status: 500,
             headers: { 'Content-Type': 'application/json' }
