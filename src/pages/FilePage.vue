@@ -4,7 +4,9 @@ import useFileStore from '@/store/file';
 import { formatBytes, copyToClipboard } from '@/utils/utils';
 import { PutFile } from '@/api';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 
+const router = useRouter();
 const { t: $t } = useI18n();
 const fileStore = useFileStore();
 
@@ -98,107 +100,107 @@ const onCopyLink = (filename: string) => {
   copyToClipboard(getFileUrl(filename));
 }
 
+const goHome = () => router.push('/');
+const goManage = () => router.push('/filemanage');
+
 </script>
 
 <template>
-  <div class="flex flex-col items-center">
-    <div class="file-area flex flex-col mt-4 transition-all" :class="{ 'drag-over': isDragOver }">
-      <div class="files" @click="requestUploadFile" ref="fileUploadArea">
+  <div class="page-container">
+    <!-- 导航栏 -->
+    <div class="w-full max-w-3xl flex justify-between items-center mb-6">
+      <button @click="goHome" class="flex items-center text-gray-500 hover:text-gray-900 transition-colors">
+        <div class="i-mdi-arrow-left text-xl mr-1"></div>
+        <span class="font-medium">{{ $t("page_title.index") }}</span>
+      </button>
+      <h1 class="text-xl font-bold text-gray-800">{{ $t("page_title.file") }}</h1>
+      <button @click="goManage" class="flex items-center text-blue-500 hover:text-blue-600 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg">
+        <div class="i-mdi-folder-open mr-1"></div>
+        <span class="text-sm font-medium">{{ $t("page_title.filemanage") }}</span>
+      </button>
+    </div>
+
+    <!-- 上传区域 -->
+    <div class="w-full max-w-3xl bg-white rounded-2xl shadow-sm border-2 border-dashed transition-all duration-300 overflow-hidden relative"
+         :class="isDragOver ? 'border-blue-500 bg-blue-50/50 scale-[1.01]' : 'border-gray-200 hover:border-blue-300'">
+      
+      <div class="h-64 flex flex-col items-center justify-center cursor-pointer" @click="requestUploadFile" ref="fileUploadArea">
         <input ref="fileUploadInput" type="file" class="hidden" multiple />
-        <div v-if="isDragOver" class="drag-hint">{{ $t('message.drop_hint') }}</div>
+        
+        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 text-blue-500 transition-transform duration-300" :class="{ 'scale-110': isDragOver }">
+          <div class="i-mdi-cloud-upload text-3xl"></div>
+        </div>
+        
+        <p class="text-lg font-medium text-gray-700">{{ $t('message.drop_hint') }}</p>
+        <p class="text-sm text-gray-400 mt-1">Supports multiple files</p>
+        
+        <div v-if="isDragOver" class="absolute inset-0 bg-blue-500/10 backdrop-blur-sm flex items-center justify-center z-10">
+          <div class="bg-white px-6 py-3 rounded-full shadow-lg text-blue-600 font-bold flex items-center animate-bounce">
+            <div class="i-mdi-tray-arrow-down text-xl mr-2"></div>
+            Release to Upload
+          </div>
+        </div>
       </div>
-      <div class="footer p-2 border-t border-gray-100">
-        <select class="public-select" v-model="fileStore.visibility">
-          <option value="private">{{ $t('common.private') }}</option>
-          <option value="public">{{ $t('common.public') }}</option>
-        </select>
+
+      <div class="bg-gray-50 px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+         <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">Visibility Settings</span>
+         <div class="relative">
+            <select class="appearance-none bg-white border border-gray-200 text-gray-700 text-sm rounded-md pl-3 pr-8 py-1.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer" v-model="fileStore.visibility">
+              <option value="private">{{ $t('common.private') }}</option>
+              <option value="public">{{ $t('common.public') }}</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+              <div class="i-mdi-chevron-down text-sm"></div>
+            </div>
+         </div>
       </div>
     </div>
     
-    <div class="px-4 py-4 max-w-screen-md w-4/5">
-      <div v-for="file in uploadedFiles" :key="file.name" class="w-full flex flex-col mt-3 rounded-lg border border-gray-200 p-3 bg-white shadow-sm">
-        <div class="flex flex-row items-center">
-          <div class="w-10 h-10 i-mdi-file-document-outline shrink-0 text-gray-600"></div>
-          <div class="flex flex-col min-w-0 flex-1 mx-3">
-            <a class="text-base font-medium truncate hover:text-blue-600 text-gray-800" :href="`/${file.name}`" target="_blank">{{ file.name }}</a>
-            <div class="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-               <span>{{ formatBytes(file.size) }}</span>
-               <span class="w-1 h-1 rounded-full bg-gray-300"></span>
-               <span>{{ file.visibility === 'public' ? $t('common.public') : $t('common.private') }}</span>
+    <!-- 文件列表 -->
+    <div class="w-full max-w-3xl mt-8 space-y-4">
+      <transition-group name="list">
+        <div v-for="file in uploadedFiles" :key="file.name" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 transition-all hover:shadow-md">
+          <div class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
+            <div class="i-mdi-file text-2xl"></div>
+          </div>
+          
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between mb-1">
+               <a class="text-gray-800 font-medium truncate hover:text-blue-600 transition-colors" :href="`/${file.name}`" target="_blank">{{ file.name }}</a>
+               <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500">{{ formatBytes(file.size) }}</span>
+            </div>
+            
+            <div v-if="!file.done" class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-blue-500 rounded-full transition-all duration-300" :style="{ width: file.progress + '%' }"></div>
+            </div>
+            <div v-else class="flex items-center text-xs text-green-600 gap-1">
+              <div class="i-mdi-check-circle"></div>
+              <span>Upload Complete</span>
+              <span class="text-gray-300 mx-1">|</span>
+              <span class="text-gray-400">{{ file.visibility === 'public' ? $t('common.public') : $t('common.private') }}</span>
             </div>
           </div>
           
-          <div class="flex flex-row gap-2 ml-auto shrink-0 items-center">
-             <!-- Copy Link Button -->
-             <button v-if="file.done" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition text-gray-500 hover:text-blue-600" 
+          <div v-if="file.done" class="shrink-0">
+             <button class="w-9 h-9 flex items-center justify-center rounded-full bg-gray-50 text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors" 
                 :title="$t('common.copy_link')" @click="onCopyLink(file.name)">
-                <div class="i-mdi-link text-lg"></div>
+                <div class="i-mdi-link-variant text-lg"></div>
              </button>
-             <!-- Status Icon -->
-             <div class="w-6 h-6 flex items-center justify-center">
-                <div v-if="file.done" class="i-mdi-check-circle text-green-500 text-xl"></div>
-                <div v-else class="i-mdi-loading animate-spin text-blue-500 text-xl"></div>
-             </div>
           </div>
         </div>
-        
-        <!-- Progress Bar -->
-        <div v-if="!file.done" class="w-full bg-gray-100 rounded-full h-1 mt-3 overflow-hidden">
-          <div class="bg-blue-500 h-full rounded-full transition-all duration-300" :style="{ width: file.progress + '%' }"></div>
-        </div>
-      </div>
+      </transition-group>
     </div>
   </div>
 </template>
 
-<style>
-html,
-body,
-#app {
-  margin: 0;
-  padding: 0;
-  background-color: #f8f9fa;
+<style scoped>
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.5s ease;
 }
-
-.file-area {
-  --uno: rounded-lg max-w-screen-md w-4/5 border-2 border-dashed border-gray-300 transition-colors duration-200 shadow-sm overflow-hidden;
-  background-color: white;
-}
-
-.file-area:hover {
-  border-color: #b0b0b0;
-}
-
-/* 响应式拖拽样式 */
-.file-area.drag-over {
-  border-color: #3b82f6;
-  background-color: #eff6ff;
-  transform: scale(1.01);
-}
-
-.file-area .footer {
-  --uno: flex flex-row bg-gray-50;
-}
-
-.file-area .footer .public-select {
-  --uno: border border-gray-300 rounded px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500;
-}
-
-.files {
-  --uno: h-48 cursor-pointer relative flex items-center justify-center;
-  background: url(../assets/upload.svg) center center no-repeat;
-  background-size: 64px;
-}
-
-.drag-hint {
-  position: absolute;
-  background: rgba(59, 130, 246, 0.9);
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-  pointer-events: none;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+.list-enter-from,
+.list-leave-to {
+  opacity: 0;
+  transform: translateY(30px);
 }
 </style>
