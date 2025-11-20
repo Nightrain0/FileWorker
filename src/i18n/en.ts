@@ -22,6 +22,7 @@ export default {
         password_placeholder: 'Password',
         login_button: 'Login',
         setting_success: 'Setting success',
+        login_fail: 'Password incorrect',
     },
     page_title: {
         index: 'Index',
