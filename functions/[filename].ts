@@ -1,4 +1,4 @@
-import { GetObjectCommand, CopyObjectCommand, DeleteObjectCommand, GetObjectCommandOutput } from "@aws-sdk/client-s3";
+import { GetObjectCommand, CopyObjectCommand, DeleteObjectCommand, HeadObjectCommand, GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import mime from 'mime/lite';
 
@@ -121,12 +121,33 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
         await s3.send(command);
         return new Response("OK", { status: 200 });
     } catch (error: any) {
-        // 修复：R2 返回 204 No Content 时，aws-sdk 可能会因为解析空响应体而抛出错误
-        // 如果 error.$metadata.httpStatusCode 是 204 或 200，说明服务端操作已成功，应视为成功
+        // 策略升级：如果在删除过程中 SDK 报错，我们进行“二次核实”
+        
+        // 1. 先检查是不是 204/200 这种“成功”的状态码被当成了错误
         if (error?.$metadata?.httpStatusCode === 204 || error?.$metadata?.httpStatusCode === 200) {
             return new Response("OK", { status: 200 });
         }
-        
+
+        // 2. 如果状态码不对，或者没有状态码，我们尝试查询一下这个文件还在不在
+        try {
+            // 发送 HeadObject 请求来检查文件是否存在
+            await s3.send(new HeadObjectCommand({ 
+                Bucket: BUCKET!, 
+                Key: filename as string 
+            }));
+            
+            // 如果代码执行到这里，说明 HeadObject 成功了，也就是说文件**还在**。
+            // 那么删除是真的失败了，我们需要把原始错误抛给前端。
+        } catch (headError: any) {
+            // 如果 HeadObject 抛出了 NotFound (404)，说明文件**已经不存在了**。
+            // 这意味着删除操作实际上是成功的（或者文件本来就不在），我们可以放心地返回 200 OK。
+            if (headError.name === 'NotFound' || headError.$metadata?.httpStatusCode === 404) {
+                return new Response("OK", { status: 200 });
+            }
+            // 如果是其他错误（比如 403 Forbidden），那说明我们甚至无法检查文件，那就还是报错吧。
+        }
+
+        // 如果以上补救措施都无效，返回原始错误信息
         return new Response(JSON.stringify({ error: error.message }), { 
             status: 500,
             headers: { 'Content-Type': 'application/json' }
