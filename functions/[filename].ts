@@ -5,14 +5,24 @@ import mime from 'mime/lite';
 import Env from './utils/Env';
 import { createS3Client, auth } from './utils/utils';
 
+// 辅助函数：安全解码文件名
+const decode = (str: string) => {
+    try {
+        return decodeURIComponent(str);
+    } catch (e) {
+        return str;
+    }
+}
+
 export const onRequestGet: PagesFunction<Env> = async (context) => {
     const { params, env } = context;
-    const { filename } = params;
+    // 解码文件名，处理中文
+    const filename = decode(params.filename as string);
     const { BUCKET } = env;
     const s3 = createS3Client(env);
     const command = new GetObjectCommand({
         Bucket: BUCKET!,
-        Key: filename as string
+        Key: filename
     });
     let response: GetObjectCommandOutput;
     try {
@@ -27,7 +37,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     if (response.ContentType !== "application/octet-stream") {
         headers.set('content-type', response.ContentType);
     } else {
-        headers.set('content-type', mime.getType(filename as string) || "application/octet-stream");
+        headers.set('content-type', mime.getType(filename) || "application/octet-stream");
     }
     if (response.Metadata['x-store-type'] === "text") {
         headers.set('content-type', 'text/plain;charset=utf-8');
@@ -53,7 +63,8 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     if (!auth(env, request)) {
         return new Response("Unauthorized", { status: 401 });
     }
-    const { filename } = params;
+    // 解码文件名，处理中文
+    const filename = decode(params.filename as string);
     const { BUCKET } = env;
     const s3 = createS3Client(env);
     const headers = new Headers(request.headers);
@@ -65,7 +76,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     }
     const parallelUploads3 = new Upload({
         client: s3,
-        params: { Bucket: BUCKET, Key: filename as string, Body: request.body, Metadata: Object.fromEntries(x_store_headers) },
+        params: { Bucket: BUCKET, Key: filename, Body: request.body, Metadata: Object.fromEntries(x_store_headers) },
         queueSize: 4, // optional concurrency configuration
         partSize: 1024 * 1024 * 5, // optional size of each part, in bytes, at least 5MB
         leavePartsOnError: false, // optional manually handle dropped parts
@@ -79,7 +90,8 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
     if (!auth(env, request)) {
         return new Response("Unauthorized", { status: 401 });
     }
-    const { filename } = params;
+    // 解码文件名，处理中文
+    const filename = decode(params.filename as string);
     const { BUCKET } = env;
     const s3 = createS3Client(env);
     const headers = new Headers(request.headers);
@@ -92,7 +104,7 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
     const command = new CopyObjectCommand({
         Bucket: BUCKET!,
         CopySource: `${BUCKET}/${filename}`,
-        Key: filename as string,
+        Key: filename,
         MetadataDirective: "REPLACE",
         Metadata: Object.fromEntries(x_store_headers),
     });
@@ -107,14 +119,15 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
         return new Response("Unauthorized", { status: 401 });
     }
     
-    const { filename } = params;
+    // 解码文件名，处理中文
+    const filename = decode(params.filename as string);
     const { BUCKET } = env;
     const s3 = createS3Client(env);
     
     // 2. 执行删除
     const command = new DeleteObjectCommand({
         Bucket: BUCKET!,
-        Key: filename as string
+        Key: filename
     });
 
     try {
