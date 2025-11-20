@@ -1,12 +1,26 @@
-import axios from 'axios';
+import axios, { type AxiosProgressEvent } from 'axios';
 
-const PutFile = async (filename: string, file: File | string, visibility: string, type: string = "file") => {
+const PutFile = async (
+    filename: string, 
+    file: File | string, 
+    visibility: string, 
+    type: string = "file",
+    onProgress?: (progress: number) => void
+) => {
     const url = `/${filename}`;
     const headers = {
         'x-store-visibility': visibility,
         'x-store-type': type,
     };
-    const response = await axios.put(url, file, { headers });
+    const response = await axios.put(url, file, { 
+        headers,
+        onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            if (onProgress && progressEvent.total) {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                onProgress(percentCompleted);
+            }
+        }
+    });
     return response.data;
 }
 
