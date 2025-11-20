@@ -7,7 +7,8 @@ import { onMounted, onBeforeUnmount, ref } from "vue";
 import useClipStore from "@/store/clip";
 
 import { PutFile } from "@/api";
-import { getRandomFilename } from "@/utils/utils";
+import { getRandomFilename, copyToClipboard } from "@/utils/utils";
+import { toast } from '@/utils/toast';
 
 const code = ref("");
 const modified = ref(false);
@@ -48,6 +49,8 @@ let filename = ref(getRandomFilename());
 
 let refreshRandomFileName = () => {
   filename.value = getRandomFilename();
+  // 重置修改状态，因为看起来像是新文件
+  // modified.value = true; // 或者保持状态
 }
 
 const clipStore = useClipStore();
@@ -55,6 +58,7 @@ const clipStore = useClipStore();
 let onSaveBtnClick = async () => {
   await PutFile(filename.value, code.value, clipStore.visibility, "text");
   modified.value = false;
+  toast('Saved successfully', 'success');
 }
 
 let saveContentKeydown = (e: KeyboardEvent) => {
@@ -65,6 +69,12 @@ let saveContentKeydown = (e: KeyboardEvent) => {
 }
 
 let onPasteFile = async (e: ClipboardEvent) => {
+  // 仅当编辑器聚焦或没有明确焦点时处理，防止干扰 input
+  const target = e.target as HTMLElement;
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' && target !== editor.contentDOM)) {
+    return;
+  }
+
   if (!e.clipboardData?.files.length) {
     return;
   }
@@ -88,15 +98,35 @@ onBeforeUnmount(() => {
   document.removeEventListener("paste", onPasteFile);
 })
 
+const getFileUrl = () => {
+  return `${window.location.origin}/${filename.value}`;
+}
+
+const onCopyLink = () => {
+  copyToClipboard(getFileUrl());
+}
+
+const onCopyContent = () => {
+  copyToClipboard(code.value);
+}
+
 </script>
 
 <template>
   <div class="flex flex-col items-center">
     <div class="text-area flex flex-col mt-4">
-      <div class="header p-2 flex flex-row items-center">
+      <div class="header p-2 flex flex-row items-center gap-2">
         <input class="filename-input monospace" type="text" v-model="filename" :placeholder="$t('common.filename')" />
-        <button @click="refreshRandomFileName" class="i-mdi-refresh ml-1 w-5 h-5"></button>
-        <div :class="modified ? 'unsave-attention' : 'save-attention'"></div>
+        <button @click="refreshRandomFileName" class="i-mdi-refresh w-5 h-5 cursor-pointer hover:text-blue-500" title="Refresh Filename"></button>
+        
+        <div class="ml-auto flex items-center gap-2">
+             <!-- Copy Link -->
+             <button class="i-mdi-link w-5 h-5 cursor-pointer hover:text-blue-500" title="Copy Link" @click="onCopyLink"></button>
+             <!-- Copy Content -->
+             <button class="i-mdi-content-copy w-5 h-5 cursor-pointer hover:text-blue-500" title="Copy Content" @click="onCopyContent"></button>
+             <!-- Status Indicator -->
+             <div :class="modified ? 'unsave-attention' : 'save-attention'" :title="modified ? 'Unsaved changes' : 'Saved'"></div>
+        </div>
       </div>
       <div ref="editorElement"></div>
       <div class="footer p-2">
@@ -117,14 +147,6 @@ body,
   margin: 0;
   padding: 0;
   background-color: #f8f9fa;
-}
-
-.pannel {
-  --uno: my-6 px-4 py-4 max-w-screen-md w-4/5 rounded shadow-md;
-}
-
-.tips-pannel {
-  background-color: #d1e7dd;
 }
 
 .text-area {
@@ -185,12 +207,12 @@ body,
 }
 
 .unsave-attention {
-  --uno: i-mdi-circle-small w-8 h-8 ml-auto;
-  color: #9a6700 !important;
+  --uno: i-mdi-circle-medium w-6 h-6;
+  color: #eab308 !important; /* yellow-500 */
 }
 
 .save-attention {
-  --uno: i-mdi-circle-small w-8 h-8 ml-auto;
-  color: #1f883d !important;
+  --uno: i-mdi-circle-medium w-6 h-6;
+  color: #22c55e !important; /* green-500 */
 }
 </style>
