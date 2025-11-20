@@ -54,42 +54,72 @@ const handleFiles = async (files: FileList | null) => {
 }
 
 onMounted(() => {
-  fileUploadInput.value.addEventListener('change', async (event: Event) => {
-    const target = event.target as HTMLInputElement;
-    const { files } = target;
-    await handleFiles(files);
-    target.value = ''; 
-  });
+  if (fileUploadInput.value) {
+    fileUploadInput.value.addEventListener('change', async (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      const { files } = target;
+      await handleFiles(files);
+      target.value = ''; 
+    });
+  }
 });
 
+// 拖拽上传逻辑修复
 let fileUploadArea = ref();
 const isDragOver = ref(false);
+const dragCounter = ref(0); // 使用计数器解决子元素导致的闪烁问题
 
-const onDragEvent = async (event: DragEvent) => {
-  event.preventDefault();
-  event.stopPropagation();
-  if (event.type === 'dragover') {
+const onDragEnter = (e: DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dragCounter.value++;
+  if (dragCounter.value > 0) {
     isDragOver.value = true;
-  } else {
+  }
+};
+
+const onDragLeave = (e: DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dragCounter.value--;
+  if (dragCounter.value <= 0) {
+    dragCounter.value = 0; // 防止计数器变成负数
     isDragOver.value = false;
   }
-  if (event.type === 'drop') {
-    const files = event.dataTransfer?.files;
-    await handleFiles(files || null);
-  }
-}
+};
+
+const onDragOver = (e: DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  // 必须阻止默认行为才能触发 drop
+  isDragOver.value = true; 
+};
+
+const onDrop = async (e: DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  isDragOver.value = false;
+  dragCounter.value = 0;
+  const files = e.dataTransfer?.files;
+  await handleFiles(files || null);
+};
 
 onMounted(() => {
-  fileUploadArea.value.addEventListener('dragenter', onDragEvent);
-  fileUploadArea.value.addEventListener('dragover', onDragEvent);
-  fileUploadArea.value.addEventListener('dragleave', onDragEvent);
-  fileUploadArea.value.addEventListener('drop', onDragEvent);
+  if (fileUploadArea.value) {
+    fileUploadArea.value.addEventListener('dragenter', onDragEnter);
+    fileUploadArea.value.addEventListener('dragover', onDragOver);
+    fileUploadArea.value.addEventListener('dragleave', onDragLeave);
+    fileUploadArea.value.addEventListener('drop', onDrop);
+  }
 });
+
 onUnmounted(() => {
-  fileUploadArea.value.removeEventListener('dragenter', onDragEvent);
-  fileUploadArea.value.removeEventListener('dragover', onDragEvent);
-  fileUploadArea.value.removeEventListener('dragleave', onDragEvent);
-  fileUploadArea.value.removeEventListener('drop', onDragEvent);
+  if (fileUploadArea.value) {
+    fileUploadArea.value.removeEventListener('dragenter', onDragEnter);
+    fileUploadArea.value.removeEventListener('dragover', onDragOver);
+    fileUploadArea.value.removeEventListener('dragleave', onDragLeave);
+    fileUploadArea.value.removeEventListener('drop', onDrop);
+  }
 });
 
 const getFileUrl = (filename: string) => {
@@ -134,7 +164,8 @@ const goManage = () => router.push('/filemanage');
         <p class="text-lg font-medium text-gray-700">{{ $t('message.drop_hint') }}</p>
         <p class="text-sm text-gray-400 mt-1">Supports multiple files</p>
         
-        <div v-if="isDragOver" class="absolute inset-0 bg-blue-500/10 backdrop-blur-sm flex items-center justify-center z-10">
+        <!-- 拖拽时的覆盖层 -->
+        <div v-if="isDragOver" class="absolute inset-0 bg-blue-500/10 backdrop-blur-sm flex items-center justify-center z-10 pointer-events-none">
           <div class="bg-white px-6 py-3 rounded-full shadow-lg text-blue-600 font-bold flex items-center animate-bounce">
             <div class="i-mdi-tray-arrow-down text-xl mr-2"></div>
             Release to Upload
