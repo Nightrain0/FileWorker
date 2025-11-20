@@ -3,7 +3,9 @@ import { onMounted, onUnmounted, ref, type Ref } from 'vue';
 import useFileStore from '@/store/file';
 import { formatBytes, copyToClipboard } from '@/utils/utils';
 import { PutFile } from '@/api';
+import { useI18n } from 'vue-i18n';
 
+const { t: $t } = useI18n();
 const fileStore = useFileStore();
 
 let fileUploadInput = ref();
@@ -17,16 +19,20 @@ interface UploadedFile {
   size: number;
   visibility: string;
   done: boolean;
-  progress: number; // 添加进度字段
+  progress: number;
 }
 
 let uploadedFiles: Ref<UploadedFile[]> = ref([]);
 
 const uploadSingle = async (index: number, filename: string, file: File) => {
-  await PutFile(filename, file, fileStore.visibility, "file", (progress) => {
-    uploadedFiles.value[index - 1].progress = progress;
-  });
-  uploadedFiles.value[index - 1].done = true;
+  try {
+    await PutFile(filename, file, fileStore.visibility, "file", (progress) => {
+      uploadedFiles.value[index - 1].progress = progress;
+    });
+    uploadedFiles.value[index - 1].done = true;
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 const handleFiles = async (files: FileList | null) => {
@@ -40,12 +46,7 @@ const handleFiles = async (files: FileList | null) => {
           done: false,
           progress: 0
         });
-        try {
-          uploadSingle(index, file.name, file);
-        } catch (error) {
-          console.error(error);
-          // 可以在这里处理错误状态
-        }
+        uploadSingle(index, file.name, file);
       }
     }
 }
@@ -55,13 +56,12 @@ onMounted(() => {
     const target = event.target as HTMLInputElement;
     const { files } = target;
     await handleFiles(files);
-    // 清空 input，防止上传同名文件不触发 change
     target.value = ''; 
   });
 });
 
 let fileUploadArea = ref();
-const isDragOver = ref(false); // 使用响应式变量控制样式
+const isDragOver = ref(false);
 
 const onDragEvent = async (event: DragEvent) => {
   event.preventDefault();
@@ -102,39 +102,49 @@ const onCopyLink = (filename: string) => {
 
 <template>
   <div class="flex flex-col items-center">
-    <div class="file-area flex flex-col mt-4" :class="{ 'drag-over': isDragOver }">
+    <div class="file-area flex flex-col mt-4 transition-all" :class="{ 'drag-over': isDragOver }">
       <div class="files" @click="requestUploadFile" ref="fileUploadArea">
         <input ref="fileUploadInput" type="file" class="hidden" multiple />
-        <div v-if="isDragOver" class="drag-hint">Drop files here</div>
+        <div v-if="isDragOver" class="drag-hint">{{ $t('message.drop_hint') }}</div>
       </div>
-      <div class="footer p-2">
+      <div class="footer p-2 border-t border-gray-100">
         <select class="public-select" v-model="fileStore.visibility">
           <option value="private">{{ $t('common.private') }}</option>
           <option value="public">{{ $t('common.public') }}</option>
         </select>
       </div>
     </div>
+    
     <div class="px-4 py-4 max-w-screen-md w-4/5">
-      <div v-for="file in uploadedFiles" :key="file.name" class="w-full flex flex-col mt-4 rounded border-1 border-gray-200 p-2">
+      <div v-for="file in uploadedFiles" :key="file.name" class="w-full flex flex-col mt-3 rounded-lg border border-gray-200 p-3 bg-white shadow-sm">
         <div class="flex flex-row items-center">
-          <div class="w-10 h-10 i-mdi-file-document-outline shrink-0"></div>
-          <div class="flex flex-col min-w-0 flex-1 mx-2">
-            <a class="text-lg font-semibold truncate hover:text-blue-500" :href="`/${file.name}`" target="_blank">{{ file.name }}</a>
-            <div class="text-sm text-gray">{{ formatBytes(file.size) }} · {{ file.visibility }}</div>
+          <div class="w-10 h-10 i-mdi-file-document-outline shrink-0 text-gray-600"></div>
+          <div class="flex flex-col min-w-0 flex-1 mx-3">
+            <a class="text-base font-medium truncate hover:text-blue-600 text-gray-800" :href="`/${file.name}`" target="_blank">{{ file.name }}</a>
+            <div class="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+               <span>{{ formatBytes(file.size) }}</span>
+               <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+               <span>{{ file.visibility === 'public' ? $t('common.public') : $t('common.private') }}</span>
+            </div>
           </div>
           
-          <div class="flex flex-row gap-2 ml-auto shrink-0">
+          <div class="flex flex-row gap-2 ml-auto shrink-0 items-center">
              <!-- Copy Link Button -->
-             <button v-if="file.done" class="w-6 h-6 i-mdi-content-copy cursor-pointer text-gray-500 hover:text-blue-500" 
-                title="Copy Link" @click="onCopyLink(file.name)"></button>
+             <button v-if="file.done" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition text-gray-500 hover:text-blue-600" 
+                :title="$t('common.copy_link')" @click="onCopyLink(file.name)">
+                <div class="i-mdi-link text-lg"></div>
+             </button>
              <!-- Status Icon -->
-             <div class="w-6 h-6" :class="file.done ? 'i-mdi-check text-green-500' : 'i-mdi-loading animate-spin text-blue-500'"></div>
+             <div class="w-6 h-6 flex items-center justify-center">
+                <div v-if="file.done" class="i-mdi-check-circle text-green-500 text-xl"></div>
+                <div v-else class="i-mdi-loading animate-spin text-blue-500 text-xl"></div>
+             </div>
           </div>
         </div>
         
         <!-- Progress Bar -->
-        <div v-if="!file.done" class="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-          <div class="bg-blue-600 h-1.5 rounded-full transition-all duration-300" :style="{ width: file.progress + '%' }"></div>
+        <div v-if="!file.done" class="w-full bg-gray-100 rounded-full h-1 mt-3 overflow-hidden">
+          <div class="bg-blue-500 h-full rounded-full transition-all duration-300" :style="{ width: file.progress + '%' }"></div>
         </div>
       </div>
     </div>
@@ -150,68 +160,45 @@ body,
   background-color: #f8f9fa;
 }
 
-.pannel {
-  --uno: my-6 px-4 py-4 max-w-screen-md w-4/5 rounded shadow-md;
-}
-
-.tips-pannel {
-  background-color: #d1e7dd;
-}
-
 .file-area {
-  --uno: rounded max-w-screen-md w-4/5 border-1 border-gray-300 transition-colors duration-200;
+  --uno: rounded-lg max-w-screen-md w-4/5 border-2 border-dashed border-gray-300 transition-colors duration-200 shadow-sm overflow-hidden;
   background-color: white;
+}
+
+.file-area:hover {
+  border-color: #b0b0b0;
 }
 
 /* 响应式拖拽样式 */
 .file-area.drag-over {
-  border-color: #0969da;
-  background-color: #f0f8ff;
-}
-
-.file-area .header {
-  background-color: #f5f5f5;
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+  transform: scale(1.01);
 }
 
 .file-area .footer {
-  --uno: flex flex-row;
-  background-color: #f5f5f5;
+  --uno: flex flex-row bg-gray-50;
 }
 
 .file-area .footer .public-select {
-  --uno: border-1 rounded px-6 py-1.5 text-sm;
-  border-color: #d1d1d1;
-  outline-color: #0969da;
-}
-
-.file-area .footer .save-btn {
-  --uno: rounded px-6 py-1.5 text-sm ml-auto text-white;
-  background-color: #1f883d;
-}
-
-.file-area .footer .save-btn:hover {
-  background-color: #1a7f37;
-}
-
-.file-area .header .filename-input {
-  --uno: border-1 rounded px-3 py-2 text-sm w-60;
-  border-color: #d1d1d1;
-  outline-color: #0969da;
+  --uno: border border-gray-300 rounded px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500;
 }
 
 .files {
-  --uno: h-50 border-dashed border-2 cursor-pointer relative flex items-center justify-center;
-  border-color: transparent; /* 由父级控制边框颜色 */
+  --uno: h-48 cursor-pointer relative flex items-center justify-center;
   background: url(../assets/upload.svg) center center no-repeat;
-  /* background-color: white; removed to let parent background show */
+  background-size: 64px;
 }
 
 .drag-hint {
   position: absolute;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: bold;
+  background: rgba(59, 130, 246, 0.9);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
   pointer-events: none;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 </style>
