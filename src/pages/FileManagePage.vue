@@ -60,7 +60,8 @@ const onDeleteFileClick = async (key?: string) => {
 };
 
 const getFileUrl = (key: string) => {
-  return `${window.location.origin}/${key}`;
+  // 修改：对 key 进行编码，防止中文或特殊字符导致链接失效
+  return `${window.location.origin}/${encodeURIComponent(key)}`;
 }
 
 const onCopyLink = (key?: string) => {
@@ -99,7 +100,7 @@ const goUpload = () => router.push('/file');
                     <div class="flex flex-col min-w-0 flex-1 mx-4">
                         <a class="text-base font-medium text-gray-800 truncate hover:text-blue-600 transition-colors" 
                            :title="decodeKey(file.Key!)" 
-                           :href="`/${file.Key}`" 
+                           :href="`/${encodeURIComponent(file.Key!)}`" 
                            target="_blank">
                            {{ decodeKey(file.Key!) }}
                         </a>
