@@ -123,7 +123,8 @@ onUnmounted(() => {
 });
 
 const getFileUrl = (filename: string) => {
-  return `${window.location.origin}/${filename}`;
+  // 修改：对 filename 进行编码
+  return `${window.location.origin}/${encodeURIComponent(filename)}`;
 }
 
 const onCopyLink = (filename: string) => {
@@ -137,7 +138,6 @@ const goManage = () => router.push('/filemanage');
 
 <template>
   <div class="page-container">
-    <!-- 导航栏 -->
     <div class="w-full max-w-3xl flex justify-between items-center mb-6">
       <button @click="goHome" class="flex items-center text-gray-500 hover:text-gray-900 transition-colors">
         <div class="i-mdi-arrow-left text-xl mr-1"></div>
@@ -150,7 +150,6 @@ const goManage = () => router.push('/filemanage');
       </button>
     </div>
 
-    <!-- 上传区域 -->
     <div class="w-full max-w-3xl bg-white rounded-2xl shadow-sm border-2 border-dashed transition-all duration-300 overflow-hidden relative"
          :class="isDragOver ? 'border-blue-500 bg-blue-50/50 scale-[1.01]' : 'border-gray-200 hover:border-blue-300'">
       
@@ -164,7 +163,6 @@ const goManage = () => router.push('/filemanage');
         <p class="text-lg font-medium text-gray-700">{{ $t('message.drop_hint') }}</p>
         <p class="text-sm text-gray-400 mt-1">Supports multiple files</p>
         
-        <!-- 拖拽时的覆盖层 -->
         <div v-if="isDragOver" class="absolute inset-0 bg-blue-500/10 backdrop-blur-sm flex items-center justify-center z-10 pointer-events-none">
           <div class="bg-white px-6 py-3 rounded-full shadow-lg text-blue-600 font-bold flex items-center animate-bounce">
             <div class="i-mdi-tray-arrow-down text-xl mr-2"></div>
@@ -187,7 +185,6 @@ const goManage = () => router.push('/filemanage');
       </div>
     </div>
     
-    <!-- 文件列表 -->
     <div class="w-full max-w-3xl mt-8 space-y-4">
       <transition-group name="list">
         <div v-for="file in uploadedFiles" :key="file.name" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 transition-all hover:shadow-md">
@@ -197,7 +194,7 @@ const goManage = () => router.push('/filemanage');
           
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between mb-1">
-               <a class="text-gray-800 font-medium truncate hover:text-blue-600 transition-colors" :href="`/${file.name}`" target="_blank">{{ file.name }}</a>
+               <a class="text-gray-800 font-medium truncate hover:text-blue-600 transition-colors" :href="`/${encodeURIComponent(file.name)}`" target="_blank">{{ file.name }}</a>
                <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500">{{ formatBytes(file.size) }}</span>
             </div>
             
