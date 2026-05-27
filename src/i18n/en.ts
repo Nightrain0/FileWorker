@@ -6,6 +6,18 @@ export default {
         clip: "Clipboard",
         login: "Login"
     },
+    index: {
+        file_channel_title: "File Channel",
+        tips_content: "Securely upload, share and manage your files & folders.",
+        clip_channel_title: "Cloud Clipboard",
+        clip_tips_content: "Sync text instantly across all your devices.",
+        go_to_file: "Go to Files →",
+        go_to_clip: "Go to Clipboard →"
+    },
+    login: {
+        login_title: "Welcome Back",
+        login_button: "Login"
+    },
     common: {
         private: "Private",
         public: "Public",
