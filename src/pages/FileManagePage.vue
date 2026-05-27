@@ -13,6 +13,7 @@ const { t: $t } = useI18n();
 let uploadedFiles: Ref<_Object[]> = ref([]);
 let folders: Ref<CommonPrefix[]> = ref([]);
 const currentPrefix = ref(""); // 当前路径，如 "folder1/sub2/"
+const isLoading = ref(false); // 增加加载状态，解决卡顿感
 
 function decodeKey(key: string) {
     try {
@@ -23,6 +24,7 @@ function decodeKey(key: string) {
 }
 
 const refreshFiles = async () => {
+    isLoading.value = true;
     try {
         // 传递 Delimiter='/' 来获取目录层级结构
         const res = await ListFiles(undefined, currentPrefix.value, undefined, "/");
@@ -52,6 +54,8 @@ const refreshFiles = async () => {
         toast($t('message.load_fail'), 'error');
         uploadedFiles.value = [];
         folders.value = [];
+    } finally {
+        isLoading.value = false;
     }
 };
 
@@ -61,9 +65,12 @@ onBeforeMount(async () => {
 
 const onDeleteFileClick = async (key?: string) => {
     if (!key) return;
-    if (!confirm($t('message.delete_confirm', { filename: decodeKey(key) }))) {
+    // 提取纯净的文件名用于弹窗提示
+    const shortName = decodeKey(key).substring(currentPrefix.value.length);
+    if (!confirm($t('message.delete_confirm', { filename: shortName }))) {
         return;
     }
+    isLoading.value = true;
     try {
         await DeleteFile(key);
         toast($t('message.delete_success'), 'success');
@@ -71,6 +78,44 @@ const onDeleteFileClick = async (key?: string) => {
     } catch (e) {
         console.error(e);
         toast($t('message.delete_fail'), 'error');
+        isLoading.value = false;
+    }
+};
+
+// 递归删除文件夹及其所有内容
+const onDeleteFolderClick = async (prefix?: string) => {
+    if (!prefix) return;
+    // 提取纯净的文件夹名用于弹窗提示
+    const folderName = decodeKey(prefix).substring(currentPrefix.value.length).replace(/\/$/, '');
+    if (!confirm($t('message.delete_folder_confirm', { folder: folderName }))) {
+        return;
+    }
+
+    isLoading.value = true;
+    try {
+        let isTruncated = true;
+        let continuationToken = undefined;
+
+        // 循环列出该前缀下的所有文件并删除
+        while (isTruncated) {
+            const res = await ListFiles(undefined, prefix, continuationToken);
+            if (res && res.Contents) {
+                for (const file of res.Contents) {
+                    if (file.Key) {
+                        await DeleteFile(file.Key);
+                    }
+                }
+            }
+            isTruncated = res?.IsTruncated ?? false;
+            continuationToken = res?.NextContinuationToken;
+        }
+        
+        toast($t('message.delete_success'), 'success');
+        await refreshFiles();
+    } catch (e) {
+        console.error(e);
+        toast($t('message.delete_fail'), 'error');
+        isLoading.value = false;
     }
 };
 
@@ -85,7 +130,7 @@ const onCopyLink = (key?: string) => {
 // 导航到特定层级
 const navigateTo = (prefix: string) => {
     currentPrefix.value = prefix;
-    refreshFiles();
+    refreshFiles(); // 这里会触发 isLoading = true，界面立即响应
 }
 
 // 计算面包屑导航
@@ -99,23 +144,25 @@ const breadcrumbs = computed(() => {
     });
 });
 
-// 新建文件夹功能（S3虚拟目录本质上是个以 / 结尾的0字节对象）
+// 新建文件夹
 const onCreateFolder = async () => {
-    const name = prompt("请输入新建文件夹的名称:");
+    const name = prompt($t('message.enter_folder_name'));
     if (!name) return;
     let folderName = name.trim();
     if (folderName.includes('/')) {
-        toast("文件夹名称不能包含 '/'", "error");
+        toast($t('message.folder_invalid'), "error");
         return;
     }
     const folderKey = currentPrefix.value + folderName + "/";
+    isLoading.value = true;
     try {
         await PutFile(folderKey, "", "public", "folder");
-        toast("文件夹创建成功", "success");
+        toast($t('message.create_success'), "success");
         await refreshFiles();
     } catch (e) {
         console.error(e);
-        toast("文件夹创建失败", "error");
+        toast($t('message.create_fail'), "error");
+        isLoading.value = false;
     }
 }
 
@@ -137,19 +184,20 @@ const goUpload = () => router.push({ path: '/file', query: { path: currentPrefix
              <div class="flex gap-2">
                  <button @click="onCreateFolder" class="flex items-center gap-1 text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 transition-colors px-3 py-2 rounded-lg font-medium shadow-sm">
                     <div class="i-mdi-folder-plus-outline text-lg"></div>
-                    <span class="text-sm">New Folder</span>
+                    <span class="text-sm">{{ $t("common.new_folder") }}</span>
                  </button>
                  <button @click="goUpload" class="flex items-center gap-1 text-white bg-blue-600 hover:bg-blue-700 transition-colors px-3 py-2 rounded-lg font-medium shadow-sm">
                     <div class="i-mdi-cloud-upload text-lg"></div>
-                    <span class="text-sm">Upload</span>
+                    <span class="text-sm">{{ $t("common.upload") }}</span>
                  </button>
              </div>
         </div>
 
+        <!-- 面包屑导航栏 -->
         <div class="w-full max-w-4xl flex items-center flex-wrap gap-2 mb-4 px-2 text-sm text-gray-600">
             <button @click="navigateTo('')" class="hover:text-blue-600 transition-colors flex items-center gap-1">
                 <div class="i-mdi-home-variant-outline text-lg"></div>
-                <span>Root</span>
+                <span>{{ $t("common.root") }}</span>
             </button>
             <template v-for="(crumb, index) in breadcrumbs" :key="crumb.path">
                 <div class="i-mdi-chevron-right text-gray-400"></div>
@@ -161,9 +209,17 @@ const goUpload = () => router.push({ path: '/file', query: { path: currentPrefix
             </template>
         </div>
 
-        <div class="w-full max-w-4xl bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="w-full max-w-4xl bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[300px] relative">
+            
+            <!-- 加载状态动画 -->
+            <div v-if="isLoading" class="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-10">
+                <div class="i-mdi-loading animate-spin text-4xl text-blue-500 mb-2"></div>
+                <span class="text-sm text-gray-500">Loading...</span>
+            </div>
+
             <div v-if="folders.length > 0 || uploadedFiles.length > 0" class="divide-y divide-gray-50">
                 
+                <!-- 1. 文件夹列表渲染 -->
                 <div v-for="folder in folders" :key="folder.Prefix"
                     class="group flex flex-row items-center px-6 py-4 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
                     @click="navigateTo(folder.Prefix!)">
@@ -174,17 +230,24 @@ const goUpload = () => router.push({ path: '/file', query: { path: currentPrefix
                     
                     <div class="flex flex-col min-w-0 flex-1 mx-4">
                         <span class="text-base font-medium text-gray-800 truncate group-hover:text-blue-600 transition-colors">
-                            {{ decodeKey(folder.Prefix!).slice(currentPrefix.length, -1) }}
+                            <!-- 仅显示纯净的文件夹名 -->
+                            {{ decodeKey(folder.Prefix!).substring(currentPrefix.length).replace(/\/$/, '') }}
                         </span>
                     </div>
                     
                     <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors"
+                            :title="$t('common.delete')"
+                            @click.stop="onDeleteFolderClick(folder.Prefix)">
+                            <div class="i-mdi-trash-can-outline text-lg"></div>
+                        </button>
                         <div class="w-8 h-8 flex items-center justify-center text-gray-400">
                             <div class="i-mdi-chevron-right text-xl"></div>
                         </div>
                     </div>
                 </div>
 
+                <!-- 2. 文件列表渲染 -->
                 <div v-for="file in uploadedFiles" :key="file.Key"
                     class="group flex flex-row items-center px-6 py-4 hover:bg-gray-50 transition-colors duration-150">
                     
@@ -194,11 +257,12 @@ const goUpload = () => router.push({ path: '/file', query: { path: currentPrefix
                     
                     <div class="flex flex-col min-w-0 flex-1 mx-4">
                         <a class="text-base font-medium text-gray-800 truncate hover:text-blue-600 transition-colors" 
-                           :title="decodeKey(file.Key!)" 
+                           :title="decodeKey(file.Key!).substring(currentPrefix.length)" 
                            :href="`/${encodeURIComponent(file.Key!)}`" 
                            target="_blank"
                            @click.stop>
-                           {{ decodeKey(file.Key!).replace(currentPrefix, '') }}
+                           <!-- 仅显示纯净的文件名，去除所有父级路径 -->
+                           {{ decodeKey(file.Key!).substring(currentPrefix.length) }}
                         </a>
                         <div class="text-xs text-gray-400 flex gap-3 mt-1">
                             <span>{{ formatBytes(file.Size ?? 0) }}</span>
@@ -222,11 +286,11 @@ const goUpload = () => router.push({ path: '/file', query: { path: currentPrefix
                 </div>
             </div>
             
-            <div v-else class="py-20 flex flex-col items-center text-center">
+            <div v-else-if="!isLoading" class="py-20 flex flex-col items-center text-center">
                 <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
                     <div class="i-mdi-folder-open-outline text-4xl text-gray-300"></div>
                 </div>
-                <p class="text-gray-500 font-medium">{{ currentPrefix ? 'This folder is empty' : $t('message.no_files') }}</p>
+                <p class="text-gray-500 font-medium">{{ currentPrefix ? $t('message.folder_empty') : $t('message.no_files') }}</p>
                 <p v-if="!currentPrefix" class="text-gray-400 text-sm mt-1">Upload some files to get started</p>
             </div>
         </div>
