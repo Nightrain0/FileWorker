@@ -4,7 +4,7 @@ import useFileStore from '@/store/file';
 import { formatBytes, copyToClipboard } from '@/utils/utils';
 import { PutFile } from '@/api';
 import { useI18n } from 'vue-i18n';
-import { useRouter, useRoute } from 'vue-router'; // 引入 useRoute
+import { useRouter, useRoute } from 'vue-router'; 
 
 const router = useRouter();
 const route = useRoute();
@@ -32,7 +32,7 @@ let uploadedFiles: Ref<UploadedFile[]> = ref([]);
 
 const uploadSingle = async (index: number, filename: string, file: File) => {
   try {
-    // 2. 关键：将目标目录路径拼接到文件名上
+    // 2. 将目标目录路径拼接到文件名上用于后端上传
     const fullPath = targetPath + filename;
     
     await PutFile(fullPath, file, fileStore.visibility, "file", (progress) => {
@@ -49,7 +49,7 @@ const handleFiles = async (files: FileList | null) => {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const index = uploadedFiles.value.push({
-          name: file.name, // 页面上只需显示文件名自身
+          name: file.name, // 前端 UI 永远只保留和显示纯粹的原始文件名
           size: file.size,
           visibility: fileStore.visibility,
           done: false,
@@ -128,7 +128,7 @@ onUnmounted(() => {
 });
 
 const getFileUrl = (filename: string) => {
-  // 3. 拼接包含路径的文件名用于展示和外部复制
+  // 3. 复制链接或跳转时，需要带上完整的路径
   const fullPath = targetPath + filename;
   return `${window.location.origin}/${encodeURIComponent(fullPath)}`;
 }
@@ -151,7 +151,8 @@ const goManage = () => router.push('/filemanage');
       </button>
       <div class="flex flex-col items-center">
         <h1 class="text-xl font-bold text-gray-800">{{ $t("page_title.file") }}</h1>
-        <span v-if="targetPath" class="text-xs text-blue-500 font-mono mt-1">Upload to: /{{ targetPath }}</span>
+        <!-- 显示目标上传目录的提示 -->
+        <span v-if="targetPath" class="text-xs text-blue-500 font-mono mt-1">{{ $t("message.upload_to") }} /{{ targetPath }}</span>
       </div>
       <button @click="goManage" class="flex items-center text-blue-500 hover:text-blue-600 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg">
         <div class="i-mdi-folder-open mr-1"></div>
@@ -170,18 +171,18 @@ const goManage = () => router.push('/filemanage');
         </div>
         
         <p class="text-lg font-medium text-gray-700">{{ $t('message.drop_hint') }}</p>
-        <p class="text-sm text-gray-400 mt-1">Supports multiple files</p>
+        <p class="text-sm text-gray-400 mt-1">{{ $t('message.support_multiple') }}</p>
         
         <div v-if="isDragOver" class="absolute inset-0 bg-blue-500/10 backdrop-blur-sm flex items-center justify-center z-10 pointer-events-none">
           <div class="bg-white px-6 py-3 rounded-full shadow-lg text-blue-600 font-bold flex items-center animate-bounce">
             <div class="i-mdi-tray-arrow-down text-xl mr-2"></div>
-            Release to Upload
+            {{ $t('message.release_to_upload') }}
           </div>
         </div>
       </div>
 
       <div class="bg-gray-50 px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-         <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">Visibility Settings</span>
+         <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">{{ $t('common.visibility_settings') }}</span>
          <div class="relative">
             <select class="appearance-none bg-white border border-gray-200 text-gray-700 text-sm rounded-md pl-3 pr-8 py-1.5 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer" v-model="fileStore.visibility">
               <option value="private">{{ $t('common.private') }}</option>
@@ -203,6 +204,7 @@ const goManage = () => router.push('/filemanage');
           
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between mb-1">
+               <!-- 此处绑定完整跳转链接，但文本只显示干净的文件名 -->
                <a class="text-gray-800 font-medium truncate hover:text-blue-600 transition-colors" :href="getFileUrl(file.name)" target="_blank">{{ file.name }}</a>
                <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500">{{ formatBytes(file.size) }}</span>
             </div>
@@ -212,7 +214,7 @@ const goManage = () => router.push('/filemanage');
             </div>
             <div v-else class="flex items-center text-xs text-green-600 gap-1">
               <div class="i-mdi-check-circle"></div>
-              <span>Upload Complete</span>
+              <span>{{ $t('common.upload_complete') }}</span>
               <span class="text-gray-300 mx-1">|</span>
               <span class="text-gray-400">{{ file.visibility === 'public' ? $t('common.public') : $t('common.private') }}</span>
             </div>
