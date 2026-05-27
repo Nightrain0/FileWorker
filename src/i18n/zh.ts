@@ -6,6 +6,18 @@ export default {
         clip: "在线剪贴板",
         login: "登录"
     },
+    index: {
+        file_channel_title: "文件快传",
+        tips_content: "基于 Cloudflare R2 的轻量级云盘，支持大文件与目录管理。",
+        clip_channel_title: "云端剪贴板",
+        clip_tips_content: "在所有设备间实时同步文本与代码，支持语法高亮。",
+        go_to_file: "前往文件库 →",
+        go_to_clip: "前往剪贴板 →"
+    },
+    login: {
+        login_title: "欢迎使用",
+        login_button: "登 录"
+    },
     common: {
         private: "私有",
         public: "公开",
