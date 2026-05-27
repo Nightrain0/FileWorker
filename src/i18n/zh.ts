@@ -16,7 +16,9 @@ export default {
     },
     login: {
         login_title: "欢迎使用",
-        login_button: "登 录"
+        login_button: "登 录",
+        password_placeholder: "请输入访问密码",
+        setting_success: "密码设置/登录成功"
     },
     common: {
         private: "私有",
