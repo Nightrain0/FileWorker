@@ -16,7 +16,9 @@ export default {
     },
     login: {
         login_title: "Welcome Back",
-        login_button: "Login"
+        login_button: "Login",
+        password_placeholder: "Enter Password",
+        setting_success: "Setting/Login successful"
     },
     common: {
         private: "Private",
