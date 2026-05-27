@@ -4,11 +4,15 @@ import useFileStore from '@/store/file';
 import { formatBytes, copyToClipboard } from '@/utils/utils';
 import { PutFile } from '@/api';
 import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router'; // 引入 useRoute
 
 const router = useRouter();
+const route = useRoute();
 const { t: $t } = useI18n();
 const fileStore = useFileStore();
+
+// 1. 拦截从文件管理页传来的 path 参数
+const targetPath = (route.query.path as string) || '';
 
 let fileUploadInput = ref();
 
@@ -28,7 +32,10 @@ let uploadedFiles: Ref<UploadedFile[]> = ref([]);
 
 const uploadSingle = async (index: number, filename: string, file: File) => {
   try {
-    await PutFile(filename, file, fileStore.visibility, "file", (progress) => {
+    // 2. 关键：将目标目录路径拼接到文件名上
+    const fullPath = targetPath + filename;
+    
+    await PutFile(fullPath, file, fileStore.visibility, "file", (progress) => {
       uploadedFiles.value[index - 1].progress = progress;
     });
     uploadedFiles.value[index - 1].done = true;
@@ -42,7 +49,7 @@ const handleFiles = async (files: FileList | null) => {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const index = uploadedFiles.value.push({
-          name: file.name,
+          name: file.name, // 页面上只需显示文件名自身
           size: file.size,
           visibility: fileStore.visibility,
           done: false,
@@ -64,10 +71,9 @@ onMounted(() => {
   }
 });
 
-// 拖拽上传逻辑修复
 let fileUploadArea = ref();
 const isDragOver = ref(false);
-const dragCounter = ref(0); // 使用计数器解决子元素导致的闪烁问题
+const dragCounter = ref(0);
 
 const onDragEnter = (e: DragEvent) => {
   e.preventDefault();
@@ -83,7 +89,7 @@ const onDragLeave = (e: DragEvent) => {
   e.stopPropagation();
   dragCounter.value--;
   if (dragCounter.value <= 0) {
-    dragCounter.value = 0; // 防止计数器变成负数
+    dragCounter.value = 0; 
     isDragOver.value = false;
   }
 };
@@ -91,7 +97,6 @@ const onDragLeave = (e: DragEvent) => {
 const onDragOver = (e: DragEvent) => {
   e.preventDefault();
   e.stopPropagation();
-  // 必须阻止默认行为才能触发 drop
   isDragOver.value = true; 
 };
 
@@ -123,8 +128,9 @@ onUnmounted(() => {
 });
 
 const getFileUrl = (filename: string) => {
-  // 修改：对 filename 进行编码
-  return `${window.location.origin}/${encodeURIComponent(filename)}`;
+  // 3. 拼接包含路径的文件名用于展示和外部复制
+  const fullPath = targetPath + filename;
+  return `${window.location.origin}/${encodeURIComponent(fullPath)}`;
 }
 
 const onCopyLink = (filename: string) => {
@@ -143,7 +149,10 @@ const goManage = () => router.push('/filemanage');
         <div class="i-mdi-arrow-left text-xl mr-1"></div>
         <span class="font-medium">{{ $t("page_title.index") }}</span>
       </button>
-      <h1 class="text-xl font-bold text-gray-800">{{ $t("page_title.file") }}</h1>
+      <div class="flex flex-col items-center">
+        <h1 class="text-xl font-bold text-gray-800">{{ $t("page_title.file") }}</h1>
+        <span v-if="targetPath" class="text-xs text-blue-500 font-mono mt-1">Upload to: /{{ targetPath }}</span>
+      </div>
       <button @click="goManage" class="flex items-center text-blue-500 hover:text-blue-600 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg">
         <div class="i-mdi-folder-open mr-1"></div>
         <span class="text-sm font-medium">{{ $t("page_title.filemanage") }}</span>
@@ -194,7 +203,7 @@ const goManage = () => router.push('/filemanage');
           
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between mb-1">
-               <a class="text-gray-800 font-medium truncate hover:text-blue-600 transition-colors" :href="`/${encodeURIComponent(file.name)}`" target="_blank">{{ file.name }}</a>
+               <a class="text-gray-800 font-medium truncate hover:text-blue-600 transition-colors" :href="getFileUrl(file.name)" target="_blank">{{ file.name }}</a>
                <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500">{{ formatBytes(file.size) }}</span>
             </div>
             
